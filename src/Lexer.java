@@ -1,3 +1,4 @@
+import java.util.ArrayList;
 import java.util.List;
 
 public final class Lexer {
@@ -15,15 +16,46 @@ public final class Lexer {
 
     //repeatedly lexes the charstream, passing into specific type functions when such a type is found
     public List<Token> lex() {
-        List<Token> tokens;
-        throw new UnsupportedOperationException(); //TODO
+        List<Token> tokens = new ArrayList<Token>();
+        while(chars.has(1)){
+            tokens.add(lexToken());
+        }
+        return tokens;
     }
 
     public Token lexToken() {
+
+        if(peek("[A-Za-z_]")) {
+            lexIdentifier();
+        }
+        else if(peek("[+-","[0-9]")){
+            lexNumber();
+        }
+        else if(peek("\'")){
+            lexCharacter();
+        }
+        else if(peek("\"")){
+            lexString();
+        }
+        else if(peek()){
+
+        }
+        else if(peek()){
+
+        }
+        else if(peek()){
+
+        }
+
         throw new UnsupportedOperationException(); //TODO
     }
 
     public Token lexIdentifier() {
+
+        while(peek("[A-Za-z_][A-Za-z0-9_-]*")) {
+            match("[A-Za-z_][A-Za-z0-9_-]*");
+        }
+
         throw new UnsupportedOperationException(); //TODO
     }
 
@@ -109,15 +141,34 @@ public final class Lexer {
 
     public static void main(String[] args){
 
-        Lexer l = new Lexer("hello");
+        Lexer iden = new Lexer("&(&#$@# h ^@!(^#)@(");
+        Lexer num = new Lexer("a   +213.4");
 
-        Lexer.CharStream c = new Lexer.CharStream("hello");
-        Token t = c.emit(Token.Type.IDENTIFIER);
+        while(!iden.peek("[A-Za-z_][A-Za-z0-9_-]*")){
+            iden.chars.advance();
+        }
+        iden.chars.skip();
+        while(iden.peek("[A-Za-z0-9_-]*")) {
+            System.out.print(iden.chars.get(0));
+            iden.match("[A-Za-z0-9_-]*");
+        }
+        System.out.print(iden.chars.get(0));
+        iden.match("[A-Za-z_][A-Za-z0-9_-]*");
 
-        c.advance();
+        while(!num.peek("[+-]?[0-9]+('.'[0-9]+)?")){
+            num.chars.advance();
+        }
+        num.chars.skip();
+        while(num.peek("[+-]?[0-9]+('.'[0-9]+)?")) {
+            System.out.print(num.chars.get(0));
+            num.match("[+-]?[0-9]+('.'[0-9]+)?");
+        }
 
-        System.out.println(l.peek("[A-Za-z_]","[A-Za-z0-9_-]*"));
-
+        System.out.println();
+        Token ti = iden.chars.emit(Token.Type.IDENTIFIER);
+        Token tn = num.chars.emit(Token.Type.INTEGER);
+        System.out.println(ti.toString());
+        System.out.println(tn.toString());
     }
 }
 
