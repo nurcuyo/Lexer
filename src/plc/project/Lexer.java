@@ -1,3 +1,5 @@
+package plc.project;
+
 import java.util.ArrayList;
 import java.util.List;
 
@@ -17,66 +19,96 @@ public final class Lexer {
     //repeatedly lexes the charstream, passing into specific type functions when such a type is found
     public List<Token> lex() {
         List<Token> tokens = new ArrayList<Token>();
-        while(chars.has(1)){
-            tokens.add(lexToken());
+        while(chars.has(0)){
+            Token t = (lexToken());
+            if(t.getType()!= null) tokens.add(t);
         }
         return tokens;
     }
 
     public Token lexToken() {
 
-        if(peek("[A-Za-z_]")) {
-            lexIdentifier();
+        if (peek("[A-Za-z_]")) {
+            return lexIdentifier();
+        } else if (peek("[+-]", "[0-9]") || peek("[0-9]")) {
+            return lexNumber();
+        } else if (peek("\'")) {
+            match("\'");
+            return lexCharacter();
+        } else if (peek("\"")) {
+            match("\"");
+            return lexString();
+        } else if (match("\\\\", "[bnrt\'\"\\\\]")) {
+            lexEscape();
+            return new Token(null, "", 0);
+        } else if (match("[ \b\n\r\t]")) {
+            chars.skip();
+            return new Token(null, "", 0);
+        } else {
+            return lexOperator();
         }
-        else if(peek("[+-","[0-9]")){
-            lexNumber();
-        }
-        else if(peek("\'")){
-            lexCharacter();
-        }
-        else if(peek("\"")){
-            lexString();
-        }
-        else if(peek()){
-
-        }
-        else if(peek()){
-
-        }
-        else if(peek()){
-
-        }
-
-        throw new UnsupportedOperationException(); //TODO
     }
 
     public Token lexIdentifier() {
 
-        while(peek("[A-Za-z_][A-Za-z0-9_-]*")) {
-            match("[A-Za-z_][A-Za-z0-9_-]*");
-        }
-
-        throw new UnsupportedOperationException(); //TODO
+        while(match("[A-Za-z0-9_-]"));
+        Token id = (chars.emit(Token.Type.IDENTIFIER));
+        return id;
     }
 
     public Token lexNumber() {
-        throw new UnsupportedOperationException(); //TODO
+
+        if(match("[+-]"));
+        while(match("[0-9]"));
+        if(peek("\\.","[0-9]")){
+            match("\\.");
+            while(match("[0-9]"));
+            Token de = (chars.emit(Token.Type.DECIMAL));
+            return de;
+        }
+        else {
+            Token in = (chars.emit(Token.Type.INTEGER));
+            return in;
+        }
     }
 
     public Token lexCharacter() {
-        throw new UnsupportedOperationException(); //TODO
+
+        if(!match("([^\'\\n\\r\\\\])") && !match("\\\\", "[bnrt\'\"\\\\]")){
+            throw new ParseException("Invalid Character",chars.index);
+        }
+        else if(!match("\'")){
+            throw new ParseException("Mismatched Single Quote",chars.index);
+        }
+        else {
+            Token ch = chars.emit(Token.Type.CHARACTER);
+            return ch;
+        }
     }
 
     public Token lexString() {
-        throw new UnsupportedOperationException(); //TODO
+
+        while ((match("([^\"\\n\\r\\\\])") || match("\\\\", "[bnrt\'\"\\\\]"))) { /* go */}
+        if (match("\"")) {
+            Token str = chars.emit(Token.Type.STRING);
+            return str;
+        }
+        else {
+            throw new ParseException("Invalid Character",chars.index);
+        }
     }
 
-    public Token lexEscape() {
-        throw new UnsupportedOperationException(); //TODO
+    public void lexEscape() {
+        chars.skip();
     }
 
     public Token lexOperator() {
-        throw new UnsupportedOperationException(); //TODO
+        if(match("[<>!=]")){
+            match("=");
+        }
+        else match(".");
+        Token op = chars.emit(Token.Type.OPERATOR);
+        return op;
     }
 
     //checks to see if the specified pattern occurs in the following characters
@@ -136,39 +168,4 @@ public final class Lexer {
             return new Token(type, input.substring(start, index), start);
         }
     }
-
-    ///temporary main
-
-    public static void main(String[] args){
-
-        Lexer iden = new Lexer("&(&#$@# h ^@!(^#)@(");
-        Lexer num = new Lexer("a   +213.4");
-
-        while(!iden.peek("[A-Za-z_][A-Za-z0-9_-]*")){
-            iden.chars.advance();
-        }
-        iden.chars.skip();
-        while(iden.peek("[A-Za-z0-9_-]*")) {
-            System.out.print(iden.chars.get(0));
-            iden.match("[A-Za-z0-9_-]*");
-        }
-        System.out.print(iden.chars.get(0));
-        iden.match("[A-Za-z_][A-Za-z0-9_-]*");
-
-        while(!num.peek("[+-]?[0-9]+('.'[0-9]+)?")){
-            num.chars.advance();
-        }
-        num.chars.skip();
-        while(num.peek("[+-]?[0-9]+('.'[0-9]+)?")) {
-            System.out.print(num.chars.get(0));
-            num.match("[+-]?[0-9]+('.'[0-9]+)?");
-        }
-
-        System.out.println();
-        Token ti = iden.chars.emit(Token.Type.IDENTIFIER);
-        Token tn = num.chars.emit(Token.Type.INTEGER);
-        System.out.println(ti.toString());
-        System.out.println(tn.toString());
-    }
 }
-

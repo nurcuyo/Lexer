@@ -1,3 +1,5 @@
+package plc.project;
+
 public final class ParseException extends RuntimeException {
 
     private final int index;

@@ -1,3 +1,5 @@
+package plc.project;
+
 public final class Token {
 
     public enum Type {

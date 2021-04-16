@@ -1,3 +1,5 @@
+package plc.project;
+
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -21,7 +23,10 @@ public class LexerTests {
                 Arguments.of("Alphabetic", "getName", true),
                 Arguments.of("Alphanumeric", "thelegend27", true),
                 Arguments.of("Leading Hyphen", "-five", false),
-                Arguments.of("Leading Digit", "1fish2fish3fishbluefish", false)
+                Arguments.of("Leading Digit", "1fish2fish3fishbluefish", false),
+                Arguments.of("Single Character", "a", true),
+                Arguments.of("Hyphenated", "a-b-c", true),
+                Arguments.of("Underscores", "___", true)
         );
     }
 
@@ -37,7 +42,9 @@ public class LexerTests {
                 Arguments.of("Decimal", "123.456", false),
                 Arguments.of("Signed Decimal", "-1.0", false),
                 Arguments.of("Trailing Decimal", "1.", false),
-                Arguments.of("Leading Decimal", ".5", false)
+                Arguments.of("Leading Decimal", ".5", false),
+                Arguments.of("Signed Interger","+123", true),
+                Arguments.of("Leading Zeros", "007", true)
         );
     }
 
@@ -53,7 +60,9 @@ public class LexerTests {
                 Arguments.of("Multiple Digits", "123.456", true),
                 Arguments.of("Negative Decimal", "-1.0", true),
                 Arguments.of("Trailing Decimal", "1.", false),
-                Arguments.of("Leading Decimal", ".5", false)
+                Arguments.of("Leading Decimal", ".5", false),
+                Arguments.of("Leading Zeros", "007.0", true),
+                Arguments.of("Trailing Zeros", "7.000", true)
         );
     }
 
@@ -68,7 +77,9 @@ public class LexerTests {
                 Arguments.of("Alphabetic", "\'c\'", true),
                 Arguments.of("Newline Escape", "\'\\n\'", true),
                 Arguments.of("Empty", "\'\'", false),
-                Arguments.of("Multiple", "\'abc\'", false)
+                Arguments.of("Multiple", "\'abc\'", false),
+                Arguments.of("Unterminated", "\'", false),
+                Arguments.of("Newline", "\'\n\'", false)
         );
     }
 
@@ -84,7 +95,9 @@ public class LexerTests {
                 Arguments.of("Alphabetic", "\"abc\"", true),
                 Arguments.of("Newline Escape", "\"Hello,\\nWorld\"", true),
                 Arguments.of("Unterminated", "\"unterminated", false),
-                Arguments.of("Invalid Escape", "\"invalid\\escape\"", false)
+                Arguments.of("Invalid Escape", "\"invalid\\escape\"", false),
+                Arguments.of("Symbols", "\"!@#$%^&*()\"", true),
+                Arguments.of("Newline Unterminated", "\"unterminated\n\"", false)
         );
     }
 
@@ -100,7 +113,9 @@ public class LexerTests {
                 Arguments.of("Character", "(", true),
                 Arguments.of("Comparison", "<=", true),
                 Arguments.of("Space", " ", false),
-                Arguments.of("Tab", "\t", false)
+                Arguments.of("Tab", "\t", false),
+                Arguments.of("Symbol","$",true),
+                Arguments.of("Plus Sign", "+", true)
         );
     }
 
@@ -125,6 +140,31 @@ public class LexerTests {
                         new Token(Token.Type.STRING, "\"Hello, World!\"", 6),
                         new Token(Token.Type.OPERATOR, ")", 21),
                         new Token(Token.Type.OPERATOR, ";", 22)
+                )),
+                Arguments.of("Multiple Spaces", "one   two", Arrays.asList(
+                        new Token(Token.Type.IDENTIFIER, "one", 0),
+                        new Token(Token.Type.IDENTIFIER, "two", 6)
+                )),
+                Arguments.of("Trailing Newline", "token\n", Arrays.asList(
+                        new Token(Token.Type.IDENTIFIER, "token", 0)
+                )),
+                Arguments.of("Is Whitespace", "one\btwo", Arrays.asList(
+                        new Token(Token.Type.IDENTIFIER, "one", 0),
+                        new Token(Token.Type.IDENTIFIER, "two", 4)
+                )),
+                Arguments.of("Multiple Decimal", "1.2.3", Arrays.asList(
+                        new Token(Token.Type.DECIMAL, "1.2", 0),
+                        new Token(Token.Type.OPERATOR, ".", 3),
+                        new Token(Token.Type.INTEGER, "3", 4)
+                )),
+                Arguments.of("Equals Combinations", "!===", Arrays.asList(
+                        new Token(Token.Type.OPERATOR, "!=", 0),
+                        new Token(Token.Type.OPERATOR, "==", 2)
+                )),
+                Arguments.of("Weird Quotes", "\'\"\'string\"\'\"", Arrays.asList(
+                        new Token(Token.Type.CHARACTER, "\'\"\'", 0),
+                        new Token(Token.Type.IDENTIFIER, "string", 3),
+                        new Token(Token.Type.STRING, "\"\'\"", 9)
                 ))
         );
     }
@@ -134,6 +174,12 @@ public class LexerTests {
         ParseException exception = Assertions.assertThrows(ParseException.class,
                 () -> new Lexer("\"unterminated").lex());
         Assertions.assertEquals(13, exception.getIndex());
+        ParseException unterminatedChar = Assertions.assertThrows(ParseException.class,
+                () -> new Lexer("\'c").lex());
+        Assertions.assertEquals(2, unterminatedChar.getIndex());
+        ParseException invalidEscape = Assertions.assertThrows(ParseException.class,
+                () -> new Lexer("\"invalid\\escape\"").lex());
+        Assertions.assertEquals(8, invalidEscape.getIndex());
     }
 
     private static void test(String input, Token.Type expected, boolean success) {
