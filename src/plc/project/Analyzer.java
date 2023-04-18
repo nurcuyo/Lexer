@@ -2,10 +2,12 @@ package plc.project;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.stream.Collectors;
+import java.util.function.Function;
 
 /**
  * See the specification for information about what the different visit
@@ -57,7 +59,27 @@ public final class Analyzer implements Ast.Visitor<Void> {
 
     @Override
     public Void visit(Ast.Method ast) {
-        //ast.setFunction(scope.defineFunction(ast.getName(),ast.getName(),,,args->Environment.NIL));
+        List<Environment.Type> argTypes = new ArrayList<>();
+        for (int i = 0; i < ast.getParameterTypeNames().size(); i++) {
+            argTypes.add(Environment.getType(ast.getParameterTypeNames().get(i)));
+        }
+        if (ast.getReturnTypeName().isPresent()) {
+            Environment.Function newFunc = scope.defineFunction(ast.getName(), ast.getName(), argTypes, Environment.getType((ast.getReturnTypeName().get())), args->Environment.NIL);
+            ast.setFunction(newFunc);
+        }
+        else {
+            Environment.Function newFunc = scope.defineFunction(ast.getName(),ast.getName(), argTypes, Environment.NIL.getType(), args->Environment.NIL);
+            ast.setFunction(newFunc);
+        }
+        method = ast;
+        try {
+            scope = new Scope(scope);
+            for (int i = 0; i < ast.getStatements().size(); i++) {
+                visit(ast.getStatements().get(i));
+            }
+        } finally {
+            scope = scope.getParent();
+        }
         return null;
     }
 
@@ -66,6 +88,7 @@ public final class Analyzer implements Ast.Visitor<Void> {
         if (!(ast.getExpression() instanceof Ast.Expr.Function)) {
             throw new RuntimeException();
         }
+        visit(ast.getExpression());
         return null;
     }
 
@@ -107,24 +130,30 @@ public final class Analyzer implements Ast.Visitor<Void> {
 
     @Override
     public Void visit(Ast.Stmt.If ast) {
+        //waiting on Function
         visit(ast.getCondition());
         requireAssignable(Environment.Type.BOOLEAN, ast.getCondition().getType());
-        if(ast.getThenStatements().isEmpty()) throw new RuntimeException();
-        try{
+        if(ast.getThenStatements().isEmpty())
+            throw new RuntimeException();
+        try {
             scope = new Scope(scope);
             for(Ast.Stmt stmt : ast.getThenStatements()){
-                visit(((Ast.Stmt.Expression)stmt).getExpression());
+                //System.out.println(((Ast.Stmt.Expression)stmt).getExpression());
+                visit(stmt);
             }
         } finally {
             scope = scope.getParent();
         }
-        try{
-            scope = new Scope(scope);
-            for(Ast.Stmt stmt : ast.getElseStatements()){
-                visit(((Ast.Stmt.Expression)stmt).getExpression());
+        if (!ast.getElseStatements().isEmpty()) {
+            try {
+                scope = new Scope(scope);
+                for (Ast.Stmt stmt : ast.getElseStatements()) {
+                    //System.out.println(((Ast.Stmt.Expression) stmt).getExpression());
+                    visit(stmt);
+                }
+            } finally {
+                scope = scope.getParent();
             }
-        } finally {
-            scope = scope.getParent();
         }
         return null;
 
@@ -140,7 +169,7 @@ public final class Analyzer implements Ast.Visitor<Void> {
             scope = new Scope(scope);
             scope.defineVariable(ast.getName(), ast.getName(), Environment.Type.INTEGER, Environment.NIL);
             for(Ast.Stmt stmt : ast.getStatements()){
-                visit(((Ast.Stmt.Expression)stmt).getExpression());
+                visit(stmt);
             }
         } finally {
             scope = scope.getParent();
@@ -165,7 +194,11 @@ public final class Analyzer implements Ast.Visitor<Void> {
 
     @Override
     public Void visit(Ast.Stmt.Return ast) {
-        requireAssignable(Environment.getType(method.getReturnTypeName().get()), ast.getValue().getType());
+        if (!method.getReturnTypeName().isPresent())
+            throw new RuntimeException();
+        else
+            requireAssignable(Environment.getType(method.getReturnTypeName().get()), ast.getValue().getType());
+
         return null;
     }
 
@@ -188,14 +221,14 @@ public final class Analyzer implements Ast.Visitor<Void> {
             return null;
         }
         if (ast.getLiteral() instanceof BigInteger){
-            if(((BigInteger)ast.getLiteral()).compareTo(BigInteger.valueOf(Integer.MAX_VALUE)) > 0){
+            if(((BigInteger)ast.getLiteral()).compareTo(BigInteger.valueOf(Integer.MAX_VALUE)) > 0 || ((BigInteger)ast.getLiteral()).compareTo(BigInteger.valueOf(Integer.MIN_VALUE)) < 0){
                 throw new RuntimeException();
             }
             ast.setType(Environment.Type.INTEGER);
             return null;
         }
-        if (ast.getLiteral() instanceof BigDecimal) {
-            if (((BigDecimal) ast.getLiteral()).compareTo(new BigDecimal(Double.MAX_VALUE)) > 0) {
+        if (ast.getLiteral() instanceof BigDecimal){
+            if(((BigDecimal)ast.getLiteral()).compareTo(new BigDecimal(Double.MAX_VALUE)) > 0 || ((BigDecimal)ast.getLiteral()).compareTo(new BigDecimal(Double.MIN_VALUE)) < 0){
                 throw new RuntimeException();
             }
             ast.setType(Environment.Type.DECIMAL);
@@ -206,12 +239,15 @@ public final class Analyzer implements Ast.Visitor<Void> {
 
     @Override
     public Void visit(Ast.Expr.Group ast) {
-        visit((Ast.Expr.Binary)ast.getExpression());
-        ast.setType(ast.getExpression().getType());
+        try {
+            visit((Ast.Expr.Binary) ast.getExpression());
+            ast.setType(ast.getExpression().getType());
+        } catch (Exception e) {
+            throw new RuntimeException();
+        }
         return null;
     }
 
-    @Override
     public Void visit(Ast.Expr.Binary ast) {
         String op = ast.getOperator();
         visit(ast.getRight());
@@ -247,7 +283,6 @@ public final class Analyzer implements Ast.Visitor<Void> {
         }
         return null;
     }
-
     @Override
     public Void visit(Ast.Expr.Access ast) {
         try {
@@ -256,7 +291,7 @@ public final class Analyzer implements Ast.Visitor<Void> {
             visit(receiver);
             ast.setVariable(receiver.getType().getField(ast.getName()));
         } catch (NoSuchElementException e) {
-            // if field doesn't exist, variable is in the scope
+            // if field doesnt exist, vriable is in the scope
             ast.setVariable(getScope().lookupVariable(ast.getName()));
         }
         return null;
@@ -272,7 +307,7 @@ public final class Analyzer implements Ast.Visitor<Void> {
             List<Environment.Type> receiverArgs = receiver.getType().getMethod(ast.getName(), ast.getArguments().size()).getParameterTypes();
             for (int i = 1; i < receiverArgs.size(); i++) {
                 visit(ast.getArguments().get(i-1));
-                requireAssignable(ast.getArguments().get(i-1).getType(), receiverArgs.get(i));
+                requireAssignable(receiverArgs.get(i), ast.getArguments().get(i-1).getType());
             }
         } catch (NoSuchElementException e) {
             ast.setFunction(getScope().lookupFunction(ast.getName(), ast.getArguments().size()));
@@ -287,8 +322,8 @@ public final class Analyzer implements Ast.Visitor<Void> {
 
     public static void requireAssignable(Environment.Type target, Environment.Type type) {
         if(target.getName().equals("Any")
-            || (target.getName().equals("Comparable") && (type.getName().equals("Integer") || type.getName().equals("Decimal") || type.getName().equals("Character") || type.getName().equals("String")))
-            || target.getName().equals(type.getName())){
+                || (target.getName().equals("Comparable") && (type.getName().equals("Integer") || type.getName().equals("Decimal") || type.getName().equals("Character") || type.getName().equals("String")))
+                || target.getName().equals(type.getName())){
             return;
         }
         else throw new RuntimeException();

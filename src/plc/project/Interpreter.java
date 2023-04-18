@@ -210,12 +210,12 @@ public class Interpreter implements Ast.Visitor<Environment.PlcObject> {
             case("+"):
                 try{ //concat
                     requireType(String.class,visit(ast.getLeft()));
-                    return Environment.create(ast.getLeft().toString().substring(ast.getLeft().toString().indexOf("=")+1,ast.getLeft().toString().length()-1)+ast.getRight().toString().substring(ast.getRight().toString().indexOf("=")+1,ast.getRight().toString().length()-1));
+                    return Environment.create(((Ast.Expr.Literal)ast.getLeft()).getLiteral()+""+((Ast.Expr.Literal)ast.getRight()).getLiteral());
                 }
                 catch (RuntimeException e1){ //check other
                     try {
                         requireType(String.class,visit(ast.getRight()));
-                        return Environment.create(ast.getLeft().toString().substring(ast.getLeft().toString().indexOf("=")+1,ast.getLeft().toString().length()-1)+ast.getRight().toString().substring(ast.getRight().toString().indexOf("=")+1,ast.getRight().toString().length()-1));
+                        return Environment.create(((Ast.Expr.Literal)ast.getLeft()).getLiteral()+""+((Ast.Expr.Literal)ast.getRight()).getLiteral());
                     }
                     catch (RuntimeException e2) { //add
                         requireType(visit(ast.getLeft()).getValue().getClass(),visit(ast.getRight()));

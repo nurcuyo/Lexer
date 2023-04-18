@@ -420,6 +420,17 @@ final class ParserTests2{
                                 new Token(Token.Type.IDENTIFIER, "field", 4)
                         ),
                         new Ast.Expr.Access(Optional.of(new Ast.Expr.Access(Optional.empty(), "obj")), "field")
+                ),
+                Arguments.of("Field Access",
+                        Arrays.asList(
+                                //obj.field
+                                new Token(Token.Type.IDENTIFIER, "a", 0),
+                                new Token(Token.Type.OPERATOR, ".", 1),
+                                new Token(Token.Type.IDENTIFIER, "b", 2),
+                                new Token(Token.Type.OPERATOR, ".", 3),
+                                new Token(Token.Type.IDENTIFIER,"c",4)
+                        ),
+                        new Ast.Expr.Access(Optional.of(new Ast.Expr.Access(Optional.of(new Ast.Expr.Access(Optional.empty(),"a")), "b")), "c")
                 )
         );
     }

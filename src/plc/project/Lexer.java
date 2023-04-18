@@ -94,6 +94,7 @@ public final class Lexer {
             return str;
         }
         else {
+            System.out.println(chars.index);
             throw new ParseException("Invalid Character",chars.index);
         }
     }
